@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const bookingRoutes = require('./routes/booking');
 const calendarRoutes = require('./routes/calendar');
+const { initDatabase } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,9 +21,14 @@ app.use('/api/calendar', calendarRoutes);
 
 // Serve frontend
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/../index.html');
+    res.send('<h1>Autenticação realizada com sucesso! Você já pode fechar esta aba e testar o agendamento.</h1>');
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+// Inicializar banco de dados e iniciar servidor
+initDatabase().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Servidor rodando em http://localhost:${PORT}`);
+    });
+}).catch(err => {
+    console.error('Erro ao iniciar servidor:', err);
 });

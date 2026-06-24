@@ -1,6 +1,6 @@
 const express = require('express');
 const { oauth2Client } = require('../config/google');
-const { pool } = require('../config/database');
+const { db } = require('../config/database');
 
 const router = express.Router();
 
@@ -27,10 +27,16 @@ router.get('/google/callback', async (req, res) => {
         oauth2Client.setCredentials(tokens);
 
         // Salvar tokens no banco de dados
-        await pool.query(
-            'UPDATE barbers SET google_token = $1, google_refresh_token = $2 WHERE id = $3',
-            [tokens.access_token, tokens.refresh_token, barber_id]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                'UPDATE barbers SET google_token = ?, google_refresh_token = ? WHERE id = ?',
+                [tokens.access_token, tokens.refresh_token, barber_id],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
 
         console.log(`Token salvo para barbeiro ID: ${barber_id}`);
         res.redirect('/?auth=success');

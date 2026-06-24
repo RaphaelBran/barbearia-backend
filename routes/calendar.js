@@ -1,6 +1,6 @@
 const express = require('express');
 const { calendar, oauth2Client } = require('../config/google');
-const { pool } = require('../config/database');
+const { db } = require('../config/database');
 
 const router = express.Router();
 
@@ -10,16 +10,22 @@ router.post('/event', async (req, res) => {
 
     try {
         // Buscar token do barbeiro
-        const barberResult = await pool.query(
-            'SELECT google_token, google_refresh_token FROM barbers WHERE id = $1',
-            [barber_id]
-        );
+        const barberRow = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT google_token, google_refresh_token FROM barbers WHERE id = ?',
+                [barber_id],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
 
-        if (barberResult.rows.length === 0) {
+        if (!barberRow) {
             return res.status(404).json({ success: false, error: 'Barbeiro não encontrado' });
         }
 
-        const { google_token, google_refresh_token } = barberResult.rows[0];
+        const { google_token, google_refresh_token } = barberRow;
 
         if (!google_token) {
             return res.status(400).json({ success: false, error: 'Barbeiro não autorizou Google Calendar' });
@@ -61,10 +67,16 @@ router.post('/event', async (req, res) => {
                 const newTokens = oauth2Client.credentials;
                 
                 // Atualizar token no banco
-                await pool.query(
-                    'UPDATE barbers SET google_token = $1 WHERE id = $2',
-                    [newTokens.access_token, barber_id]
-                );
+                await new Promise((resolve, reject) => {
+                    db.run(
+                        'UPDATE barbers SET google_token = ? WHERE id = ?',
+                        [newTokens.access_token, barber_id],
+                        function(err) {
+                            if (err) reject(err);
+                            else resolve();
+                        }
+                    );
+                });
                 
                 // Tentar novamente
                 const response = await calendar.events.insert({

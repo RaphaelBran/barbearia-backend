@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool, initDatabase } = require('./config/database');
+const { db, initDatabase } = require('./config/database');
 
 async function insertBarbers() {
     try {
@@ -31,12 +31,17 @@ async function insertBarbers() {
         ];
 
         for (const barber of barbers) {
-            await pool.query(
-                `INSERT INTO barbers (name, whatsapp, instagram, instagram_handle, photo)
-                 VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT DO NOTHING`,
-                [barber.name, barber.whatsapp, barber.instagram, barber.instagram_handle, barber.photo]
-            );
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `INSERT OR IGNORE INTO barbers (name, whatsapp, instagram, instagram_handle, photo)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [barber.name, barber.whatsapp, barber.instagram, barber.instagram_handle, barber.photo],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
             console.log(`Barbeiro ${barber.name} inserido com sucesso`);
         }
 
